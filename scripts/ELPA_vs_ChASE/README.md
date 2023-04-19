@@ -45,7 +45,7 @@ The plots of results require Python3 (version 3.8.5 tested) with the libraries:
 The structure of this folder is given as follows:
 
 ```bash
-├── chase
+├── chase_13
 │   ├── CPU
 │   |	├── 4
 │   |	|   ├── submit.sh
