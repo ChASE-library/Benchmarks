@@ -1,0 +1,13 @@
+ChASE_v12/
+ChASE_v13/
+*.jpeg
+*.csv
+*.qdrep
+*.sqlite
+ChASE
+*.out
+*.err
+*.bin
+build
+DEMAGIS/
+elpa/
