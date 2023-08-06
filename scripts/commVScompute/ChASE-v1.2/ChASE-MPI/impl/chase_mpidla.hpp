@@ -10,6 +10,7 @@
 #include <mpi.h>
 #include <iterator>
 #include <numeric>
+#include <chrono>
 
 #include "ChASE-MPI/chase_mpi_properties.hpp"
 #include "ChASE-MPI/chase_mpidla_interface.hpp"
@@ -32,9 +33,6 @@ class ChaseMpiDLA : public ChaseMpiDLAInterface<T> {
   ChaseMpiDLA(ChaseMpiProperties<T>* matrix_properties,
                ChaseMpiDLAInterface<T>* dla)
       : dla_(dla) {
-#ifdef USE_NSIGHT
-        nvtxRangePushA("ChaseMpiDLA: Init");
-#endif        
     ldc_ = matrix_properties->get_ldc();
     ldb_ = matrix_properties->get_ldb();
 
@@ -72,9 +70,7 @@ class ChaseMpiDLA : public ChaseMpiDLAInterface<T> {
     }
 
     Buff_ = new T[sign * N_ *  max_block_];
-#ifdef USE_NSIGHT
-    nvtxRangePop();
-#endif
+
   }
 
   ~ChaseMpiDLA() {
@@ -86,9 +82,6 @@ class ChaseMpiDLA : public ChaseMpiDLAInterface<T> {
       - For the meaning of this function, please visit ChaseMpiDLAInterface.
   */
   void preApplication(T* V, std::size_t locked, std::size_t block) override {
-#ifdef USE_NSIGHT
-    nvtxRangePushA("ChaseMpiDLA: preApplication");
-#endif    
     next_ = NextOp::bAc;
     locked_ = locked;
 
@@ -99,9 +92,6 @@ class ChaseMpiDLA : public ChaseMpiDLAInterface<T> {
     }
 
     dla_->preApplication(V, locked, block);
-#ifdef USE_NSIGHT
-    nvtxRangePop();
-#endif    
   }
 
   /*! - For ChaseMpiDLA, `preApplication` is implemented within `std::memcpy`.
@@ -109,9 +99,6 @@ class ChaseMpiDLA : public ChaseMpiDLAInterface<T> {
       - For the meaning of this function, please visit ChaseMpiDLAInterface.
   */
   void preApplication(T* V1, T* V2, std::size_t locked, std::size_t block) override {
-#ifdef USE_NSIGHT
-        nvtxRangePushA("ChaseMpiDLA: preApplication2");
-#endif        
     for (auto j = 0; j < block; j++) {
 	for(auto i = 0; i < nblocks_; i++){
             std::memcpy(B_ + j * n_ + c_offs_l_[i], V2 + j * N_ + locked * N_ + c_offs_[i], c_lens_[i] * sizeof(T));	    
@@ -121,9 +108,6 @@ class ChaseMpiDLA : public ChaseMpiDLAInterface<T> {
     dla_->preApplication(V1, V2, locked, block);
 
     this->preApplication(V1, locked, block);
-#ifdef USE_NSIGHT
-        nvtxRangePop();
-#endif     
   }
 
    /*!
@@ -138,48 +122,39 @@ class ChaseMpiDLA : public ChaseMpiDLAInterface<T> {
   void apply(T alpha, T beta, std::size_t offset, std::size_t block) override {
     T One = T(1.0);
     T Zero = T(0.0);
-#ifdef USE_NSIGHT
-       nvtxRangePushA("ChaseMpiDLA: apply");
-#endif
+
     std::size_t dim;
     if (next_ == NextOp::bAc) {
 
       dim = n_ * block;
-#ifdef USE_NSIGHT
-           nvtxRangePushA("ChaseMpiDLA: gemm");
-#endif
+
       dla_->apply(alpha, beta, offset, block);
-#ifdef USE_NSIGHT
-            nvtxRangePop();
-            nvtxRangePushA("ChaseMpiDLA: allreduce");
-#endif
+
+      start = std::chrono::high_resolution_clock::now();
       MPI_Allreduce(MPI_IN_PLACE, B_ + offset * n_, dim, getMPI_Type<T>(),
                     MPI_SUM, col_comm_);
-#ifdef USE_NSIGHT
-           nvtxRangePop();
-#endif
+
+      end = std::chrono::high_resolution_clock::now();
+      elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(end - start);
+      std::cout << "+ Filter/AllReduce," << elapsed.count() << std::endl;
+
       next_ = NextOp::cAb;
     } else {  // cAb
 
       dim = m_ * block;
-#ifdef USE_NSIGHT
-           nvtxRangePushA("ChaseMpiDLA: gemm");
-#endif
+
       dla_->apply(alpha, beta, offset, block);
-#ifdef USE_NSIGHT
-            nvtxRangePop();
-           nvtxRangePushA("ChaseMpiDLA: allreduce");
-#endif
+
+      start = std::chrono::high_resolution_clock::now();
+
       MPI_Allreduce(MPI_IN_PLACE, C_ + offset * m_, dim, getMPI_Type<T>(),
                     MPI_SUM, row_comm_);
-#ifdef USE_NSIGHT
-           nvtxRangePop();
-#endif
+      end = std::chrono::high_resolution_clock::now();
+      elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(end - start);
+      std::cout << "+ Filter/AllReduce," << elapsed.count() << std::endl;
+
       next_ = NextOp::bAc;
     }
-#ifdef USE_NSIGHT
-       nvtxRangePop();
-#endif    
   }
 
   /*!
@@ -188,9 +163,6 @@ class ChaseMpiDLA : public ChaseMpiDLAInterface<T> {
      - For the meaning of this function, please visit ChaseMpiDLAInterface.  
   */
   bool postApplication(T* V, std::size_t block) override {
-#ifdef USE_NSIGHT
-        nvtxRangePushA("ChaseMpiDLA: postApplication");
-#endif    
     dla_->postApplication(V, block);
 
     std::size_t N = N_;
@@ -310,9 +282,7 @@ class ChaseMpiDLA : public ChaseMpiDLAInterface<T> {
     for (auto j = 0; j < gsize; j++) {
         MPI_Type_free(&newType[j]);
     }
-#ifdef USE_NSIGHT
-        nvtxRangePop();
-#endif
+
     return true;
   }
 
@@ -322,13 +292,7 @@ class ChaseMpiDLA : public ChaseMpiDLAInterface<T> {
     - For the meaning of this function, please visit ChaseMpiDLAInterface.    
   */
   void shiftMatrix(T c, bool isunshift = false) override {
-#ifdef USE_NSIGHT
-           nvtxRangePushA("ChaseMpiDLA: shiftMatrix");
-#endif    
     dla_->shiftMatrix(c, isunshift);
-#ifdef USE_NSIGHT
-        nvtxRangePop();
-#endif    
   }
 
   /*!
@@ -341,18 +305,14 @@ class ChaseMpiDLA : public ChaseMpiDLAInterface<T> {
   */
   void applyVec(T* B, T* C) override {
     // TODO
-#ifdef USE_NSIGHT
-        nvtxRangePushA("ChaseMpiDLA: applyVec");
-#endif
+
     T One = T(1.0);
     T Zero = T(0.0);
 
     this->preApplication(B, 0, 1);
     this->apply(One, Zero, 0, 1);
     this->postApplication(C, 1);
-#ifdef USE_NSIGHT
-        nvtxRangePop();
-#endif
+
     // gemm_->applyVec(B, C);
   }
 
@@ -384,13 +344,7 @@ class ChaseMpiDLA : public ChaseMpiDLAInterface<T> {
     - For the meaning of this function, please visit ChaseMpiDLAInterface.
   */
   Base<T> lange(char norm, std::size_t m, std::size_t n, T* A, std::size_t lda) override {
-#ifdef USE_NSIGHT
-        nvtxRangePushA("ChaseMpiDLA: lange");
-#endif    
       return dla_->lange(norm, m, n, A, lda);
-#ifdef USE_NSIGHT
-        nvtxRangePop();
-#endif      
   }
 
   /*!
@@ -400,13 +354,7 @@ class ChaseMpiDLA : public ChaseMpiDLAInterface<T> {
     - For the meaning of this function, please visit ChaseMpiDLAInterface.
   */
   void gegqr(std::size_t N, std::size_t nevex, T * approxV, std::size_t LDA) override {
-  #ifdef USE_NSIGHT
-        nvtxRangePushA("ChaseMpiDLA: gegqr");
-#endif     
       dla_->gegqr(N, nevex, approxV, LDA);
-#ifdef USE_NSIGHT
-        nvtxRangePop();
-#endif        
   }
 
   /*!
@@ -416,14 +364,8 @@ class ChaseMpiDLA : public ChaseMpiDLAInterface<T> {
     - For the meaning of this function, please visit ChaseMpiDLAInterface.
   */
   void axpy(std::size_t N, T * alpha, T * x, std::size_t incx, T *y, std::size_t incy) override {
-  #ifdef USE_NSIGHT
-        nvtxRangePushA("ChaseMpiDLA: axpy");
-#endif         
       t_axpy(N, alpha, x, incx, y, incy);
       dla_->axpy(N, alpha, x, incx, y, incy);
-#ifdef USE_NSIGHT
-       nvtxRangePop();
-#endif          
   }
 
   /*!
@@ -433,14 +375,8 @@ class ChaseMpiDLA : public ChaseMpiDLAInterface<T> {
     - For the meaning of this function, please visit ChaseMpiDLAInterface.
   */
   void scal(std::size_t N, T *a, T *x, std::size_t incx) override {
-  #ifdef USE_NSIGHT
-        nvtxRangePushA("ChaseMpiDLA: scal");
-#endif     
       t_scal(N, a, x, incx);
       dla_->scal(N, a, x, incx);
-#ifdef USE_NSIGHT
-        nvtxRangePop();
-#endif         
   }
 
   /*!
@@ -475,14 +411,8 @@ class ChaseMpiDLA : public ChaseMpiDLAInterface<T> {
                          T* a, std::size_t lda, T* b,
                          std::size_t ldb, T* beta, T* c, std::size_t ldc) override
   {
-   #ifdef USE_NSIGHT
-        nvtxRangePushA("ChaseMpiDLA: gemm_small");
-#endif     
       t_gemm(Layout, transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
       dla_->gemm_small(Layout, transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
-      #ifdef USE_NSIGHT
-        nvtxRangePop();
-#endif        
   }
 
    /*!
@@ -497,14 +427,8 @@ class ChaseMpiDLA : public ChaseMpiDLAInterface<T> {
                          T* a, std::size_t lda, T* b,
                          std::size_t ldb, T* beta, T* c, std::size_t ldc) override
   {
-       #ifdef USE_NSIGHT
-        nvtxRangePushA("ChaseMpiDLA: gemm_large");
-#endif 
       t_gemm(Layout, transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
       dla_->gemm_large(Layout, transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
-       #ifdef USE_NSIGHT
-        nvtxRangePop();
-#endif  
   }
 
   /*!
@@ -540,13 +464,7 @@ class ChaseMpiDLA : public ChaseMpiDLAInterface<T> {
     - For the meaning of this function, please visit ChaseMpiDLAInterface.
   */
   void RR_kernel(std::size_t N, std::size_t block, T *approxV, std::size_t locked, T *workspace, T One, T Zero, Base<T> *ritzv) override {
-       #ifdef USE_NSIGHT
-        nvtxRangePushA("ChaseMpiDLA: RR_kernel");
-#endif     
       dla_->RR_kernel(N, block, approxV, locked, workspace, One, Zero, ritzv);	
-#ifdef USE_NSIGHT
-        nvtxRangePop();
-#endif      
   }
   
  private:
@@ -585,6 +503,10 @@ class ChaseMpiDLA : public ChaseMpiDLAInterface<T> {
   std::string data_layout;
   std::unique_ptr<ChaseMpiDLAInterface<T>> dla_;
   ChaseMpiProperties<T>* matrix_properties_;
+
+  std::chrono::high_resolution_clock::time_point start, end;
+  std::chrono::duration<double> elapsed;
+
 };
 }  // namespace mpi
 }  // namespace chase

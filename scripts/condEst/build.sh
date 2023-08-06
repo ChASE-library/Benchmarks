@@ -1,12 +1,10 @@
 #!/bin/bash -x
 
-ml Stages/2022 GCC OpenMPI CUDA imkl CMake Boost git
+ml Stages/2023 GCC OpenMPI CUDA imkl CMake Boost git
 
 git clone https://github.com/ChASE-library/ChASE.git
 
 cd ChASE
-
-git checkout v1.3.1
 
 mkdir build
 

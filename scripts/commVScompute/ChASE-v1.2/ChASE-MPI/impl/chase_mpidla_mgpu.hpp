@@ -54,9 +54,6 @@ class ChaseMpiDLAMultiGPU : public ChaseMpiDLAInterface<T> {
   //! This construct set up the CUDA environment and register device memory which will be used by ChASE.
   //! @param matrix_properties: it is an object of ChaseMpiProperties, which defines the MPI environment and data distribution scheme in ChASE-MPI.  
   ChaseMpiDLAMultiGPU(ChaseMpiProperties<T>* matrix_properties) {
-#ifdef USE_NSIGHT
-        nvtxRangePushA("ChaseMpiDLAMultiGPU: Init");
-#endif    
     n_ = matrix_properties->get_n();
     m_ = matrix_properties->get_m();
     N_ = matrix_properties->get_N();
@@ -103,9 +100,7 @@ class ChaseMpiDLAMultiGPU : public ChaseMpiDLAInterface<T> {
 	time_copy_V = std::chrono::milliseconds::zero();
 	time_gemm = std::chrono::milliseconds::zero();
 	time_apply_vec = std::chrono::milliseconds::zero();
-#ifdef USE_NSIGHT
-        nvtxRangePop();
-#endif  
+
   }
 
   ~ChaseMpiDLAMultiGPU() {
@@ -123,9 +118,6 @@ class ChaseMpiDLAMultiGPU : public ChaseMpiDLAInterface<T> {
 	std::cout << "[MGPU_HEMM] AppyVec  = " << time_apply_vec.count()/1000 << " sec"  << std::endl;
 	std::cout << std::endl;
 #endif
-#ifdef USE_NSIGHT
-        nvtxRangePop();
-#endif  
   }
 
   /*! - For ChaseMpiDLAMultiGPU, `preApplication` is implemented only with the operation of switching operation flags.
@@ -209,15 +201,14 @@ class ChaseMpiDLAMultiGPU : public ChaseMpiDLAInterface<T> {
 
 	/// Transfer block-vector to GPUs
 	// TODO: Do not distribute buf_init if beta == 0 -> spare one copying
-    auto start = high_resolution_clock::now();
-#ifdef USE_NSIGHT
-        nvtxRangePushA("distribute_V");
-#endif    
+    auto start = high_resolution_clock::now();    
+    t1 = high_resolution_clock::now();  
     mgpuDLA->distribute_V(buf_init, ldBufInit, block);
     mgpuDLA->synchronizeAll();
-#ifdef USE_NSIGHT
-        nvtxRangePop();
-#endif    
+    t2 = std::chrono::high_resolution_clock::now();
+    elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    std::cout << "+ Filter/H2D," << elapsed.count() << std::endl;
+
     auto stop = high_resolution_clock::now();
     time_copy_V += stop - start;
 
@@ -230,14 +221,13 @@ class ChaseMpiDLAMultiGPU : public ChaseMpiDLAInterface<T> {
 
 	/// Return computed block-vector to CPU
 	start = high_resolution_clock::now();
-#ifdef USE_NSIGHT
-        nvtxRangePushA("return_W");
-#endif    
+  t1 = high_resolution_clock::now();  
 	mgpuDLA->return_W(buf_target, ldBufTarget, block, W_offset);
 	mgpuDLA->synchronizeAll();
-#ifdef USE_NSIGHT
-        nvtxRangePop();
-#endif     
+  t2 = std::chrono::high_resolution_clock::now();
+  elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+  std::cout << "+ Filter/D2H," << elapsed.count() << std::endl;
+
 	stop = high_resolution_clock::now();
 	time_copy_W += stop - start;
 
@@ -268,13 +258,7 @@ class ChaseMpiDLAMultiGPU : public ChaseMpiDLAInterface<T> {
   void shiftMatrix(T c, bool isunshift = false)  override {
 
 	auto start = high_resolution_clock::now();
-  #ifdef USE_NSIGHT
-        nvtxRangePushA("distribute_H");
-#endif
 	mgpuDLA->distribute_H(orig_H_, m_);
-  #ifdef USE_NSIGHT
-        nvtxRangePop();
-#endif
         mgpuDLA->shiftMatrix(c);
 	mgpuDLA->synchronizeAll();
 
@@ -294,9 +278,7 @@ class ChaseMpiDLAMultiGPU : public ChaseMpiDLAInterface<T> {
   void applyVec(T* B, T* C)  override {
     T alpha = T(1.0);
     T beta = T(0.0);
-#ifdef USE_NSIGHT
-        nvtxRangePushA("applyVec");
-#endif
+
     // this->preApplication(B, 0, 1);
     // this->apply(alpha, beta, 0, 1);
     // this->postApplication(C, 1);
@@ -307,9 +289,6 @@ class ChaseMpiDLAMultiGPU : public ChaseMpiDLAInterface<T> {
 
 	auto stop = high_resolution_clock::now();
 	time_apply_vec += stop - start;
-  #ifdef USE_NSIGHT
-        nvtxRangePop();
-#endif
   }
 
   void get_off(std::size_t* xoff, std::size_t* yoff, std::size_t* xlen,
@@ -478,6 +457,10 @@ class ChaseMpiDLAMultiGPU : public ChaseMpiDLAInterface<T> {
   std::chrono::duration<double, std::milli> time_copy_V;
   std::chrono::duration<double, std::milli> time_gemm;
   std::chrono::duration<double, std::milli> time_apply_vec;
+
+  std::chrono::high_resolution_clock::time_point t1, t2;
+  std::chrono::duration<double> elapsed;
+
 };
 
 template <typename T>

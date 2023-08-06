@@ -200,17 +200,11 @@ class ChaseMpi : public chase::Chase<T> {
   //! For the construction of ChaseMpi with MPI, this function is naturally in parallel across the MPI nodes, since the shift operation only takes places on selected local matrices which stores in a distributed manner. 
   //! @param c: the shift value on the diagonal of matrix `A`.
   void Shift(T c, bool isunshift = false) override {
-#ifdef USE_NSIGHT
-            nvtxRangePushA("Shifted");
-#endif    
     if (!isunshift) {
       dla_->preApplication(approxV_, locked_, nev_ + nex_ - locked_);
     }
 
     dla_->shiftMatrix(c, isunshift);
-#ifdef USE_NSIGHT
-            nvtxRangePop();
-#endif    
   };
 
   // todo this is wrong we want the END of V
@@ -231,14 +225,8 @@ class ChaseMpi : public chase::Chase<T> {
       @param offset: the offset of column number which the `HEMM` starts from.
   */
   void HEMM(std::size_t block, T alpha, T beta, std::size_t offset) override {
-#ifdef USE_NSIGHT
-        nvtxRangePushA("HEMM");
-#endif    
     dla_->apply(alpha, beta, offset, block);
     std::swap(approxV_, workspace_);
-#ifdef USE_NSIGHT
-        nvtxRangePop();
-#endif
   };
 
   void Hv(T alpha);
@@ -248,21 +236,25 @@ class ChaseMpi : public chase::Chase<T> {
   //! After the explicit construction of Q, its first `fixednev` number of vectors are overwritten by the converged eigenvectors stored in `workspace_`.
   //! @param fixednev: total number of converged eigenpairs before this time QR factorization.  
   void QR(std::size_t fixednev) override {
-#ifdef USE_NSIGHT
-        nvtxRangePushA("HEMM");
-#endif    
+    start = std::chrono::high_resolution_clock::now();
+
     dla_->postApplication(approxV_, nev_ + nex_ - locked_);
+      
+    end = std::chrono::high_resolution_clock::now();
+    elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(end - start);
+    std::cout << "+ QR/Bcast," << elapsed.count() << std::endl;
 
     std::size_t nevex = nev_ + nex_;
     // we don't need this, as we copy to workspace when locking
     // std::memcpy(workspace_, approxV_, N_ * fixednev * sizeof(T));
 
     dla_->gegqr(N_, nevex, approxV_, N_);
-
+    start = std::chrono::high_resolution_clock::now();
     std::memcpy(approxV_, workspace_, N_ * fixednev * sizeof(T));
-#ifdef USE_NSIGHT
-        nvtxRangePop();
-#endif    
+    end = std::chrono::high_resolution_clock::now();
+    elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(end - start);
+    std::cout << "+ QR/Memcpy," << elapsed.count() << std::endl;
+
   };
 
   //! This member function implements the virtual one declared in Chase class.
@@ -275,12 +267,17 @@ class ChaseMpi : public chase::Chase<T> {
 
     T One = T(1.0);
     T Zero = T(0.0);
-#ifdef USE_NSIGHT
-        nvtxRangePushA("RR");
-#endif  
+    start = std::chrono::high_resolution_clock::now();
     dla_->preApplication(approxV_, locked_, block);
+    end = std::chrono::high_resolution_clock::now();
+    elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(end - start);
+    std::cout << "+ RR/Memcpy," << elapsed.count() << std::endl;    
     dla_->apply(One, Zero, 0, block);
+    start = std::chrono::high_resolution_clock::now();   
     dla_->postApplication(workspace_, block);
+    end = std::chrono::high_resolution_clock::now();
+    elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(end - start);
+    std::cout << "+ RR/Bcast," << elapsed.count() << std::endl;    
 
     // W <- H*V
     // t_gemm(CblasColMajor, CblasNoTrans, CblasNoTrans,  //
@@ -294,9 +291,7 @@ class ChaseMpi : public chase::Chase<T> {
     dla_->RR_kernel(N_, block, approxV_, locked_, workspace_, One, Zero, ritzv);
 
     std::swap(approxV_, workspace_);
-#ifdef USE_NSIGHT
-        nvtxRangePop();
-#endif  
+
     // we can swap, since the locked part were copied over as part of the QR
 
   };
@@ -312,12 +307,18 @@ class ChaseMpi : public chase::Chase<T> {
     T alpha = T(1.0);
     T beta = T(0.0);
     std::size_t unconverged = (nev_ + nex_) - fixednev;
-#ifdef USE_NSIGHT
-        nvtxRangePushA("Resd");
-#endif  
+
+    start = std::chrono::high_resolution_clock::now();   
     dla_->preApplication(approxV_, locked_, unconverged);
+    end = std::chrono::high_resolution_clock::now();
+    elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(end - start);
+    std::cout << "+ Resd/Memcpy," << elapsed.count() << std::endl;      
     dla_->apply(alpha, beta, 0, unconverged);
+    start = std::chrono::high_resolution_clock::now();       
     dla_->postApplication(workspace_, unconverged);
+    end = std::chrono::high_resolution_clock::now();
+    elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(end - start);
+    std::cout << "+ Resd/Bcast," << elapsed.count() << std::endl;        
 
     // t_gemm(CblasColMajor, CblasNoTrans, CblasNoTrans,  //
     //        N_, unconverged, N_,                        //
@@ -326,7 +327,7 @@ class ChaseMpi : public chase::Chase<T> {
     //        approxV_ + locked_ * N_, N_,                //
     //        &beta,                                      //
     //        workspace_ + locked_ * N_, N_);
-
+    start = std::chrono::high_resolution_clock::now();       
     for (std::size_t i = 0; i < unconverged; ++i) {
       beta = T(-ritzv[i]);
       dla_->axpy(                                      //
@@ -338,19 +339,15 @@ class ChaseMpi : public chase::Chase<T> {
 
       resid[i] = dla_->nrm2(N_, (workspace_ + locked_ * N_) + N_ * i, 1);
     }
-
-  #ifdef USE_NSIGHT
-        nvtxRangePop();
-  #endif   
+    end = std::chrono::high_resolution_clock::now();
+    elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(end - start);
+    std::cout << "+ Resd/Residual," << elapsed.count() << std::endl;  
   };
 
   //! This member function implements the virtual one declared in Chase class.
   //! It swaps the two matrices of vectors used in the Chebyschev filter
   //! @param i&j: the column indexing `i` and `j` are swapped in both rectangular matrices `approxV_` and `workspace_`.
   void Swap(std::size_t i, std::size_t j) override {
-#ifdef USE_NSIGHT
-        nvtxRangePushA("Swap");
-#endif    
     T *ztmp = new T[N_];
     memcpy(ztmp, approxV_ + N_ * i, N_ * sizeof(T));
     memcpy(approxV_ + N_ * i, approxV_ + N_ * j, N_ * sizeof(T));
@@ -360,9 +357,6 @@ class ChaseMpi : public chase::Chase<T> {
     memcpy(workspace_ + N_ * i, workspace_ + N_ * j, N_ * sizeof(T));
     memcpy(workspace_ + N_ * j, ztmp, N_ * sizeof(T));
     delete[] ztmp;
-#ifdef USE_NSIGHT
-        nvtxRangePop();
-#endif    
   };
 
   //! This member function implements the virtual one declared in Chase class.
@@ -402,9 +396,7 @@ class ChaseMpi : public chase::Chase<T> {
     dla_->scal(n, &alpha, v1, 1);
     Base<T> real_beta = 0;
     real_beta = 0;
-#ifdef USE_NSIGHT
-        nvtxRangePushA("Lanczos: loop");
-#endif
+
     for (std::size_t k = 0; k < m; ++k) {
       // t_gemv(CblasColMajor, CblasNoTrans, N_, N_, &One, H_, N_, v1, 1, &Zero,
       // w, 1);
@@ -432,9 +424,7 @@ class ChaseMpi : public chase::Chase<T> {
       std::swap(v1, v0);
       std::swap(v1, w);
     }
-#ifdef USE_NSIGHT
-        nvtxRangePop();
-#endif
+
     delete[] w_;
     delete[] v0_;
 
@@ -444,17 +434,13 @@ class ChaseMpi : public chase::Chase<T> {
     int tryrac = 0;
     int *isuppz = new int[2 * m];
     Base<T> *ritzv = new Base<T>[m];
-#ifdef USE_NSIGHT
-        nvtxRangePushA("Stemr");
-#endif
+
     dla_->stemr(LAPACK_COL_MAJOR, 'N', 'A', m, d, e, ul, ll, vl, vu,
                      &notneeded_m, ritzv, NULL, m, m, isuppz, &tryrac);
 
     *upperb = std::max(std::abs(ritzv[0]), std::abs(ritzv[m - 1])) +
               std::abs(real_beta);
-#ifdef USE_NSIGHT
-        nvtxRangePop();
-#endif
+
     delete[] ritzv;
     delete[] isuppz;
     delete[] d;
@@ -499,9 +485,7 @@ class ChaseMpi : public chase::Chase<T> {
     dla_->scal(n, &alpha, v1, 1);
 
     Base<T> real_beta = 0.0;
-#ifdef USE_NSIGHT
-        nvtxRangePushA("Lanczos: loop");
-#endif
+
     for (std::size_t k = 0; k < m; ++k) {
       if (workspace_ + k * n != v1)
         memcpy(workspace_ + k * n, v1, n * sizeof(T));
@@ -540,12 +524,7 @@ class ChaseMpi : public chase::Chase<T> {
 
     delete[] w_;
     delete[] v0_;
-#ifdef USE_NSIGHT
-        nvtxRangePop();
-#endif
-#ifdef USE_NSIGHT
-        nvtxRangePushA("Stemr");
-#endif        
+
     int notneeded_m;
     std::size_t vl, vu;
     Base<T> ul, ll;
@@ -555,9 +534,7 @@ class ChaseMpi : public chase::Chase<T> {
             ritzv, ritzV, m, m, isuppz, &tryrac);
     *upperb = std::max(std::abs(ritzv[0]), std::abs(ritzv[m - 1])) +
               std::abs(real_beta);
-#ifdef USE_NSIGHT
-        nvtxRangePop();
-#endif
+
     for (std::size_t k = 1; k < m; ++k) {
       Tau[k] = std::abs(ritzV[k * m]) * std::abs(ritzV[k * m]);
       // std::cout << Tau[k] << "\n";
@@ -594,9 +571,7 @@ class ChaseMpi : public chase::Chase<T> {
   void LanczosDos(std::size_t idx, std::size_t m, T *ritzVc) override {
     T alpha = T(1.0);
     T beta = T(0.0);
-#ifdef USE_NSIGHT
-        nvtxRangePushA("LanczosDos");
-#endif
+
     dla_->gemm_small(CblasColMajor, CblasNoTrans, CblasNoTrans,  //
            N_, idx, m,                                 //
            &alpha,                                     //
@@ -605,9 +580,6 @@ class ChaseMpi : public chase::Chase<T> {
            &beta,                                      //
            approxV_, N_                                //
     );
-#ifdef USE_NSIGHT
-        nvtxRangePop();
-#endif    
   }
 
   //! This function return the residual of computed eigenpairs.
@@ -845,6 +817,10 @@ class ChaseMpi : public chase::Chase<T> {
   //! An object of ChaseConfig class which setup all the parameters of ChASE, these parameters are either provided by users, or using the default values.
   //! This variable is initialized by the constructor of ChaseConfig class by using `N`, `nev` and `nex`, which are the parameters of the constructors of ChaseMpi.
   ChaseConfig<T> config_;
+
+  std::chrono::high_resolution_clock::time_point start, end;
+  std::chrono::duration<double> elapsed;
+
 };
 
 // TODO

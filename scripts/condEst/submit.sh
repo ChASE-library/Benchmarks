@@ -8,13 +8,6 @@ sbatch Opt.sh
 
 cd ..
 
-cd TiO2-12k
-
-sbatch OptN.sh
-
-sbatch Opt.sh
-
-cd ..
 
 cd TiO2-29k
 
@@ -49,14 +42,6 @@ sbatch Opt.sh
 cd ..
 
 cd HfO2-76k
-
-sbatch OptN.sh
-
-sbatch Opt.sh
-
-cd ..
-
-cd HfO2-62k
 
 sbatch OptN.sh
 

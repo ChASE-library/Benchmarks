@@ -12,10 +12,13 @@
 export SRUN_CPUS_PER_TASK=${SLURM_CPUS_PER_TASK}
 export OMP_NUM_THREADS=${SRUN_CPUS_PER_TASK}
 
-ml Stages/2022 GCC OpenMPI CUDA imkl CMake Boost git
+ml Stages/2023 GCC OpenMPI CUDA imkl CMake Boost git
+
+DMAX=100
+N=300000
 
 for i in {1..4}
 do
-srun --threads-per-core=1 ../../ChASE_v12/build/examples/2_input_output/2_input_output_mgpu --n 300000 --path_in=../../../../../data/matgen_m_300000_Uniform_eps_1.000000e-04_dmax_1.000000e+02.bin --nev 2250 --nex 750 --complex 0 --tol 1e-10 --opt S --deg 20 --mode R --maxIter 1
+srun --threads-per-core=1 ../../ChASE_v13/build/examples/2_input_output/2_input_output_mgpu --n $N --path_in=0 --isMatGen=true --dmax=${DMAX} --nev 2250 --nex 750 --complex 0 --tol 1e-10 --opt S --deg 20 --mode R --maxIter 1
 done
 

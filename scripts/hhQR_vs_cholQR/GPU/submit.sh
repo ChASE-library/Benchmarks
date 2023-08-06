@@ -8,13 +8,6 @@ sbatch cholQR.sh
 
 cd ..
 
-cd TiO2-12k
-
-sbatch hhQR.sh
-
-sbatch cholQR.sh
-
-cd ..
 
 cd TiO2-29k
 
@@ -56,13 +49,6 @@ sbatch cholQR.sh
 
 cd ..
 
-cd HfO2-62k
-
-sbatch hhQR.sh
-
-sbatch cholQR.sh
-
-cd ..
 
 
 

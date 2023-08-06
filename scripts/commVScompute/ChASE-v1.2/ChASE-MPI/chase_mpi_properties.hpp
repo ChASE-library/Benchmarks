@@ -134,9 +134,7 @@ class ChaseMpiProperties {
       : N_(N), mb_(mb), nb_(nb), nev_(nev), nex_(nex), max_block_(nev + nex), irsrc_(irsrc), icsrc_(icsrc), comm_(comm) {
   
         data_layout = "Block-Cyclic";
-#ifdef USE_NSIGHT
-        nvtxRangePushA("ChaseMpiProperties(block-cyclic): Init");
-#endif
+
 	std::size_t blocknb[2];
         std::size_t N_loc[2];	
 	std::size_t blocksize[2];
@@ -333,9 +331,7 @@ class ChaseMpiProperties {
 	       }
 	   }
        }
-#ifdef USE_NSIGHT
-        nvtxRangePop();
-#endif       
+       
     }
 
   //! A constructor of the class ChaseMpiProperties which distributes matrix `A` in `Block Distribution`.
@@ -366,9 +362,7 @@ class ChaseMpiProperties {
     ChaseMpiProperties(std::size_t N, std::size_t nev, std::size_t nex, std::size_t m, 
 		    std::size_t n, int npr, int npc, char *grid_major, MPI_Comm comm)
       : N_(N), nev_(nev), nex_(nex), max_block_(nev + nex), m_(m), n_(n), comm_(comm) {
-#ifdef USE_NSIGHT
-        nvtxRangePushA("ChaseMpiProperties(Block-Block1): Init");
-#endif
+
 	data_layout = "Block-Block";
 
 	int tmp_dims_[2];
@@ -521,10 +515,6 @@ class ChaseMpiProperties {
             send_lens_[dim_idx][dims_[dim_idx] - 1] = N_ - (dims_[dim_idx] - 1) * len;
             g_offsets_[dim_idx].push_back(block_displs_[dim_idx][dims_[dim_idx] - 1][0]);
 	}
-
-#ifdef USE_NSIGHT
-        nvtxRangePop();
-#endif    
     }
 
   //! A constructor of the class ChaseMpiProperties which distributes matrix `A` in `Block Distribution`. 
@@ -552,9 +542,7 @@ class ChaseMpiProperties {
     ChaseMpiProperties(std::size_t N, std::size_t nev, std::size_t nex,
                      MPI_Comm comm)
       : N_(N), nev_(nev), nex_(nex), max_block_(nev + nex), comm_(comm) {
-#ifdef USE_NSIGHT
-        nvtxRangePushA("ChaseMpiProperties(Block-Block2): Init");
-#endif
+
     data_layout = "Block-Block";
 
     int periodic[] = {0, 0};
@@ -675,9 +663,7 @@ class ChaseMpiProperties {
         send_lens_[dim_idx][dims_[dim_idx] - 1] = N_ - (dims_[dim_idx] - 1) * len;
         g_offsets_[dim_idx].push_back(block_displs_[dim_idx][dims_[dim_idx] - 1][0]);
     }
-#ifdef USE_NSIGHT
-        nvtxRangePop();
-#endif
+
   }
 
   //! Returns the rank of matrix `A` which is distributed within 2D MPI grid.
