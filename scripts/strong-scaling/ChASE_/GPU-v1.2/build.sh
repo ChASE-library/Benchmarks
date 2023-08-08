@@ -6,11 +6,13 @@ git clone https://github.com/ChASE-library/ChASE.git
 
 cd ChASE
 
+git checkout v1.2.1
+
 mkdir build
 
 cd build
 
-cmake .. -DBUILD_WITH_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Release -DCHASE_OUTPUT=ON -DENABLE_CUDA_AWARE_MPI=OFF
+cmake .. -DBUILD_WITH_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Release -DCHASE_OUTPUT=ON
 
 make -j
 

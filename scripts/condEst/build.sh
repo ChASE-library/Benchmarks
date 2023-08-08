@@ -6,6 +6,8 @@ git clone https://github.com/ChASE-library/ChASE.git
 
 cd ChASE
 
+git checkout v1.4.0
+
 mkdir build
 
 cd build

@@ -18,6 +18,9 @@ gpu_df_nccl = gpu_df_nccl[['mode', 'nodes','All[sec]']]
 gpu_df = gpu_df[['mode', 'nodes','All[sec]']]
 gpu_df_old = gpu_df_old[['mode', 'nodes','All[sec]']]
 
+gpu_df_nccl['solver'] = 'ChASE(NCCL)'
+gpu_df['solver'] = 'ChASE(STD)'
+gpu_df_old['solver'] = 'ChASE(LMS)'
 
 df = pd.concat([gpu_df_nccl, gpu_df, gpu_df_old])
 df.sort_values(by=['nodes'])
@@ -26,14 +29,12 @@ f, ax = plt.subplots(figsize=(3, 3.2))
 
 plt.plot([df['nodes'].min(),df['nodes'].max()], [gpu_df_nccl['All[sec]'].min(),gpu_df_nccl['All[sec]'].min()], linestyle="--",color="gray")
 
-g = sns.lineplot(x=xs, y=ys, hue="mode", style="mode", linewidth=2, markersize=8, palette = "Set1", markers=['.','.','.'], dashes=False, ci="sd", data=df)
+g = sns.lineplot(x=xs, y=ys, hue="solver", style="solver", linewidth=2, markersize=8, palette = "Set1", markers=['.','.','.'], dashes=False, ci="sd", data=df)
 
 ax.set_yscale('log')
 ax.set_xscale('log')
 
-#ticks = df['nodes'].drop_duplicates().values.tolist()
-#ax.set_xticks(ticks)
-#ax.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
+
 plt.minorticks_off()
 
 ticks = [1,4,9,16,25,36, 64,100,256,400,625,900]

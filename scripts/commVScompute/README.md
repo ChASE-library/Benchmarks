@@ -47,7 +47,7 @@ The structure of this folder is given as follows:
 
 ```bash
 ├── ChASE-v1.2
-├── ChASE-v1.3
+├── ChASE-v1.4
 ├── nccl
 |	├── 1
 │ 	├── 4
@@ -75,7 +75,7 @@ The structure of this folder is given as follows:
 ├── data.py
 └── README.md
 ```
-In the directory `ChASE-v1.2`, a simplified version of ChASE v1.2.1 is provided by inserting the required timers. The reason to provide this simplified version is that timers are not available in the release version v1.2.1. Similarly, a simplified version of ChASE v1.3 is also provided in the directory `ChASE-v1.3`. 
+In the directory `ChASE-v1.2`, a simplified version of ChASE v1.2.1 is provided by inserting the required timers. The reason to provide this simplified version is that timers are not available in the release version v1.2.1. Similarly, a simplified version of ChASE v1.4 is also provided in the directory `ChASE-v1.4`. 
 
 The scripts for the builds are available in each folder, named as `build.sh`. 
 The folders `1`, `4`, `16`, `64` contain the script for the experiments with 1, 4, 16, 64 nodes on JUWELS-Booster, respectively. Finally, the bash script `submit.sh` is used to submit all the jobs in this folder. 

@@ -21,6 +21,9 @@ gpu_df_3 = gpu_df_3[['solver', 'nodes','All[sec]']]
 elpa1_df = elpa1_df[['solver', 'nodes','All[sec]']]
 elpa2_df = elpa2_df[['solver', 'nodes','All[sec]']]
 
+gpu_df['solver'] = 'ChASE(NCCL)'
+gpu_df_2['solver'] = 'ChASE(STD)'
+gpu_df_3['solver'] = 'ChASE(LMS)'
 
 df = pd.concat([gpu_df, gpu_df_2, gpu_df_3, elpa1_df, elpa2_df])
 

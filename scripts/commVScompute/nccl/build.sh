@@ -6,7 +6,7 @@ mkdir build
 
 cd build
 
-cmake ../../ChASE-v1.3 -DBUILD_WITH_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Release
+cmake ../../ChASE-v1.4 -DBUILD_WITH_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Release
 
 make -j
 
