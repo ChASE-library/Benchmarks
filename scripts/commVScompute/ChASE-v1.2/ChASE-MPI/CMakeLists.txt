@@ -142,13 +142,7 @@ if(CMAKE_CUDA_COMPILER)
   endif()
 
   message("-- Configuring the build of CUDA with the compute capability of ${CMAKE_CUDA_ARCHITECTURES}")
-  if(NOT DEFINED CUDA_nvToolsExt_LIBRARY)
-    set (CUDA_nvToolsExt_LIBRARY "")
-    if(ENABLE_NSIGHT)
-      message(STATUS "No Nsight Profiling Tools detected")
-      set(ENABLE_NSIGHT OFF CACHE BOOL "" FORCE)
-    endif()
-  endif()
+
   add_library( chase_cuda "kernels/shift.cu" )
 
   set_target_properties( chase_cuda PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
@@ -164,21 +158,7 @@ if(CMAKE_CUDA_COMPILER)
   target_link_libraries( chase_cuda INTERFACE
     ${CUDA_CUBLAS_LIBRARIES}
     ${CUDA_cusolver_LIBRARY}
-    ${CUDA_nvToolsExt_LIBRARY}
     )
-  target_link_libraries( chase_mpi INTERFACE
-    ${CUDA_nvToolsExt_LIBRARY}
-    )    
-  target_link_libraries( chase_seq INTERFACE
-    ${CUDA_nvToolsExt_LIBRARY}
-    )
-
-  if(ENABLE_NSIGHT)
-      target_compile_definitions(chase_cuda INTERFACE USE_NSIGHT)
-      target_compile_definitions(chase_seq  INTERFACE USE_NSIGHT)
-      target_compile_definitions(chase_mpi INTERFACE USE_NSIGHT)
-      target_compile_definitions(chase_algorithm INTERFACE USE_NSIGHT)
-  endif()
 
   install( TARGETS chase_cuda
     EXPORT chase-cuda

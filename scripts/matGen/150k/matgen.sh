@@ -15,7 +15,7 @@ ml Stages/2022 GCC OpenMPI imkl CMake Boost git
 
 export OMP_NUM_THREADS=${SRUN_CPUS_PER_TASK}
 
-srun -n 256 --threads-per-core=1 ../DEMAGIS/build/examples/driver_scalapack.exe --N 180000 --dim0 16 --dim1 16 --mbsize 625 --nbsize 625 --dmax 60 --epsilon=1e-4 --myDist 0
+srun -n 256 --threads-per-core=1 ../DEMAGIS/build/examples/driver_scalapack.exe --N 150000 --dim0 16 --dim1 16 --mbsize 625 --nbsize 625 --dmax 60 --epsilon=1e-4 --myDist 0
 
 mv *.bin ../../../data/
 

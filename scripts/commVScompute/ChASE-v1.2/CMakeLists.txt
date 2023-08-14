@@ -20,8 +20,6 @@ if( CHASE_OUTPUT )
   target_compile_definitions( chase_algorithm  INTERFACE "-DCHASE_OUTPUT" )
 endif()
 
-option(ENABLE_NSIGHT "Enable profiling with Nvidia Nsight Systems" OFF)
-
 install( TARGETS chase_algorithm
   EXPORT chase-headers
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -45,6 +43,20 @@ install(EXPORT chase-headers
 
 ## ChASE-MPI ##
 add_subdirectory( "ChASE-MPI/")
+add_subdirectory( "ChASE-Elemental/")
+
+## Tests
+add_executable( "chase_driver" tests/noinput.cpp )
+
+if(TARGET chase_cuda )
+  enable_language(CUDA)
+  target_link_libraries(chase_driver chase_mpi chase_cuda)
+  target_compile_definitions(chase_driver PRIVATE USE_GPU=1)
+else()
+  target_link_libraries(chase_driver chase_mpi)
+endif()
+
+add_subdirectory("interface")
 
 # Examples
 option(BUILD_WITH_EXAMPLES "Build the examples" OFF)
@@ -52,6 +64,16 @@ if(BUILD_WITH_EXAMPLES)
         message(STATUS "Building the examples of ChASE")
         add_subdirectory("./examples")
 endif()
+
+# Unit tests
+option(UNITTEST "Build unit tests" OFF)
+if(UNITTEST)
+	message(STATUS "Building unittests")
+	add_subdirectory("./unittests")
+endif()
+
+enable_testing()
+add_test( BASIC "chase_driver" )
 
 # Documentation
 option(BUILD_WITH_DOCS "Build the examples" OFF)

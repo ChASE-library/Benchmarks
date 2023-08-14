@@ -1,11 +1,8 @@
-# Communication vs Computation
+# Communication, Computation and Data movement 
 
 ## Summary
 
-These experiments compare communication vs computation of kernels **QR**, **Rayleigh-Ritz** and **Residuals**, and the initialization overheads for both ChASE v1.2.1 and v1.3.1. We designed a weak-scaling experiment, in which the count of compute nodes increases from 1 to 64, while the matrix size increases from 30k to 240k.  Only the first iteration is reported, which ensures a fixed workload with the increase of compute nodes count. The experiments are carried on JURECA-DC and JUWELS-Booster for ChASE-CPU and ChASE-GPU, respectively. For this experiment, we used artificial matrices of type Uniform with nev and nex being fixed to 2250 and 750.
-
-The measurement of the timings of different kernels are effectued by inserting Nvidia [NVTX](https://docs.nvidia.com/nvtx/) event macros.
-Therefore, CUDA is mandatory for both CPU and GPU builds.
+These experiments compare the costs of communication, computation and CPU-GPU data movements of kernels **Filter**, **QR**, **Rayleigh-Ritz** and **Residuals**. We designed a weak-scaling experiment, in which the count of compute nodes increases from 1 to 64, while the matrix size increases from 30k to 240k.  Only the first iteration is reported, which ensures a fixed workload with the increase of compute nodes count. The experiments are carried on JUWELS-Booster for ChASE-GPU. For this experiment, we used artificial matrices of type Uniform with nev and nex being fixed to 2250 and 750.
 
 ## Data
 
@@ -15,25 +12,27 @@ The experiments require the generation of Uniform matrix of size 30k, 60k, 120k 
 
 ### Build
 
-The build of both CPU and GPU version ChASE requires
+The build of GPU version ChASE requires
 
-- a C/C++ compiler (GCC 11.2.0 tested)
-- MPI (OpenMPI 4.1.2 tested)
-- Intel MKL (version 2021.4.0 tested)
-- CMake (version 3.21.1 tested)
-- Boost (version 1.78.0 tested)
-- git (version 2.33.0 tested)
-- CUDA (version 11.5 tested)
-
-CUDA is mandatory for both CPU and GPU builds since we use NVTX events to record the communication and computation timings.
+- a C/C++ compiler (GCC 11.3.0 tested)
+- MPI (OpenMPI 4.1.4 tested)
+- Intel MKL (version 2022.1.0 tested)
+- CMake (version 3.23.1 tested)
+- Boost (version 1.79.0 tested)
+- git (version 2.36.0 tested)
+- CUDA (version 11.7 tested)
 
 ### extract data
 
-Extract of useful data from the output of profiling requires 
+Extract of useful profiling data requires 
 
-- `sqlite3` (version 3.35.5 tested)
-	
-to query the database.
+- grep
+
+and 
+
+Python3 (version 3.8.5 tested) with the libraries:
+
+- pandas (version 1.3.2 tested)
 
 ### Plot
 
@@ -48,98 +47,117 @@ The structure of this folder is given as follows:
 
 ```bash
 ├── ChASE-v1.2
-├── CPU
-│   ├── v1.2
-│   |	├── 1
-│   │ 	├── 4
-│   │  	├── 16
-│   │  	|── 64
-|   ├── v1.3
-│   |	├── 1
-│   |	├── 4
-│   |	├── 16
-│   |   |── 64
-|   ├── build_v12.sh
-|   ├── build_v13.sh
-|   ├── submit.sh
-├── GPU
-│   ├── v1.2
-│   |	├── 1
-│   |	├── 4
-│   |	├── 16
-│   |	|── 64
-|   ├── v1.3
-│   |	├── 1
-│   |	├── 4
-│   |	├── 16
-│   |   |── 64
-|   ├── build_v12.sh
-|   ├── build_v13.sh
-|   ├── submit.sh
-├── query_init_v13.sh
-├── query_init_v12.sh
-├── query_v12.sh
-├── query_v13.sh
-├── write.sh
+├── ChASE-v1.4
+├── nccl
+|	├── 1
+│ 	├── 4
+│  	├── 16
+│  	|── 64
+│  	|── build.sh
+│  	|── clean.sh
+│  	|── submit.sh
+├── no-nccl
+|	├── 1
+│ 	├── 4
+│  	├── 16
+│  	|── 64
+│  	|── build.sh
+│  	|── clean.sh
+│  	|── submit.sh
+├── v1.2.1
+|	├── 1
+│ 	├── 4
+│  	├── 16
+│  	|── 64
+│  	|── build.sh
+│  	|── clean.sh
+│  	|── submit.sh
+├── data.py
 └── README.md
 ```
-In the directory `ChASE-v1.2`, a simplified version of ChASE v1.2.1 is provided by inserting the required NVTX macros. The reason to provide this simplified version is that NVTX marcos are not available in the release version v1.2.1.
+In the directory `ChASE-v1.2`, a simplified version of ChASE v1.2.1 is provided by inserting the required timers. The reason to provide this simplified version is that timers are not available in the release version v1.2.1. Similarly, a simplified version of ChASE v1.4 is also provided in the directory `ChASE-v1.4`. 
 
-The scripts for CPU and GPU builds are available in two seperate folders `CPU` and `GPU`. Here, we use the CPU build as an example to explain the structure. There are two bash scripts `build_v12.sh` and `build_v13.sh`, which is to build ChASE v1.2.1 and v1.3.1 in this folder.
-The folders `1`, `4`, `16`, `64` contain the script for the experiments with 1, 4, 16, 64 nodes on JURECA-DC, respectively. Finally, the bash script `submit.sh` is used to submit all the jobs in this `CPU` folder. 
+The scripts for the builds are available in each folder, named as `build.sh`. 
+The folders `1`, `4`, `16`, `64` contain the script for the experiments with 1, 4, 16, 64 nodes on JUWELS-Booster, respectively. Finally, the bash script `submit.sh` is used to submit all the jobs in this folder. 
 
-The output for each case is stored in its own folder, and the NVTX records are stored in a SQLite database named as `report1.sqlite`. The communication and computation costs are extracted through the querys of `sqlite3`, and the the querys are stored in the scripts `query_v12.sh` and `query_v13.sh` for ChASE v1.2.1 and v1.3.1. For the overheads of initialization, the querys are available in the scripts `query_init_v12.sh` and `query_init_v13.sh`. The script `write.sh` is to write the queried results into CSV files.
+The output for each case is stored in its own folder, it will at first cleaned by the script `clean.sh` within each folder of build. And finally, a CSV file is generated by `data.py` which collects are the data.
 
 
 ## Workflow
 
-### CPU build and experiments
+### GPU build without NCCL and experiments
 
-1. go into the folder `CPU`
-
-```bash
-cd CPU
-```
-
-2. build ChASEv1.2.1
+1. go into the folder `no-nccl`
 
 ```bash
-./build_v12.sh
+cd no-nccl
 ```
 
-3. build ChASEv1.3.1
+2. build ChASE
 
 ```bash
-./build_v13.sh
+./build.sh
 ```
 
-4. submit jobs
+3. submit jobs
 
 ```bash
 ./submit.sh
 ```
 
-### GPU build and experiments
-
-1. go into the folder `GPU`
+4. clean output files of all jobs
 
 ```bash
-cd GPU
+./submit.sh
 ```
 
-2. build ChASEv1.2.1
+### GPU build with NCCL and experiments
+
+1. go into the folder `nccl`
 
 ```bash
-./build_v12.sh
+cd nccl
 ```
 
-3. build ChASEv1.3.1
+2. build ChASE
 
 ```bash
-./build_v13.sh
+./build.sh
 ```
 
-4. submit jobs
+3. submit jobs
+
+```bash
+./submit.sh
+```
+
+4. clean output files of all jobs
+
+```bash
+./submit.sh
+```
+
+### GPU build of ChASE v1.2 and experiments
+
+1. go into the folder `v1.2.1`
+
+```bash
+cd v1.2.1
+```
+
+2. build ChASE
+
+```bash
+./build.sh
+```
+
+3. submit jobs
+
+```bash
+./submit.sh
+```
+
+4. clean output files of all jobs
 
 ```bash
 ./submit.sh
@@ -150,12 +168,10 @@ cd GPU
 In the folder `commVScompute`
 
 ```bash
-./write.sh
+python ./data.py
 ```
 
-The results of communication vs computation will be saved as `../../results/chase_Kernel_comm_vs_compute.csv`
-
-The results of initialization overheads will be saved as `../../results/Initialization_overhead_old.csv` and `../../results/Initialization_overhead_new.csv` for ChASE v1.2.1 and v1.3.1, respectively.
+The results will be saved as `../../results/comm_vs_compute_vs_cpy.csv`
 
 ### Plot
 
@@ -167,14 +183,4 @@ All the Python based plot scripts are available in the folder [plots](../../plot
 python comm_vs_compt.py
 ```
 
-The plots, `QR-CPU.jpeg`, `QR-GPU.jpeg`, `RR-CPU.jpeg`, `RR-GPU.jpeg`, `Resid-CPU.jpeg`, `Resid-GPU.jpeg` are available in the folder `../../plots/jpeg`. 
-
-
-
-### Plots for the initialization overheads
-
-```bash
-python Init.py
-```
-
-The plots, `Init-old-ChASE.jpeg` and `Init-new-ChASE.jpeg` are available in the folder [plots/jpeg](../../plots/jpeg), which correspond respectively to ChASE v1.2.1 and v1.3.1.
+The plots, `Filter-GPU.pdf`, `QR-GPU.pdf`, `RR-GPU.pdf`, `Resid-GPU.pdf` are available in the folder `../../plots/pdf`. 

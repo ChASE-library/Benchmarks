@@ -11,12 +11,12 @@ For the case NO-OPT, the degree of Chebyshev polynomial is fixed to 20 at every 
 
 The estimations of condition number for each step are compared with the real condition number which has been computed by a LAPACK SVD solver.
 
-All the experiments are performed with GPU build of ChASE v1.3.1 on JUWELS-Booster.
+All the experiments are performed with GPU build of ChASE on JUWELS-Booster.
 
 
 ## Data
 
-The expriements require downloading the DFT and BSE matrices at first. Then an environment variable `DATA_PATH` should be set to the path to store the downloaded matrices.
+The experiments require downloading the DFT and BSE matrices at first. Then an environment variable `DATA_PATH` should be set to the path to store the downloaded matrices.
 
 ## Software dependencies
 
@@ -24,13 +24,13 @@ The expriements require downloading the DFT and BSE matrices at first. Then an e
 
 The build of ChASE for these experiments require:
 
-- a C/C++ compiler (GCC 11.2.0 tested)
-- MPI (OpenMPI 4.1.2 tested)
-- Intel MKL (version 2021.4.0 tested)
-- CMake (version 3.21.1 tested)
-- Boost (version 1.78.0 tested)
-- git (version 2.33.0 tested)
-- CUDA (version 11.5 tested)
+- a C/C++ compiler (GCC 11.3.0 tested)
+- MPI (OpenMPI 4.1.4 tested)
+- Intel MKL (version 2022.1.0 tested)
+- CMake (version 3.23.1 tested)
+- Boost (version 1.79.0 tested)
+- git (version 2.36.0 tested)
+- CUDA (version 11.7 tested)
 
 ### extract data
 
@@ -56,13 +56,7 @@ The plots of results require Python3 (version 3.8.5 tested) with the libraries:
 ├── NaCl-9k
 │   ├── OptN.sh
 |   ├── Opt.sh
-├── TiO2-12k
-│   ├── OptN.sh
-|   ├── Opt.sh
 ├── TiO2-29k
-│   ├── OptN.sh
-|   ├── Opt.sh
-├── HfO2-62k
 │   ├── OptN.sh
 |   ├── Opt.sh
 ├── HfO2-76k
@@ -80,9 +74,9 @@ The plots of results require Python3 (version 3.8.5 tested) with the libraries:
 └── README.md
 ```
 
-The folder `AuAg-13k`, `NaCl-9k`, `TiO2-12k`, `TiO2-29k`, `HfO2-62k`, `HfO2-76k`, `In2O3-76k` and `In2O3-115k` contain respectively the job scripts for each matrix. For example, in the folder `AuAg-13k`, there are two slurm job scripts: `OptN.sh` and `Opt.sh` which represent the job scripts for ChASE without and with degree optimization.
+The folder `AuAg-13k`, `NaCl-9k`, `TiO2-29k`, `HfO2-76k`, `In2O3-76k` and `In2O3-115k` contain respectively the job scripts for each matrix. For example, in the folder `AuAg-13k`, there are two slurm job scripts: `OptN.sh` and `Opt.sh` which represent the job scripts for ChASE without and with degree optimization.
 
-The bash script `build.sh` is to build ChASE-v1.3.1 for these experiments. The bash script `submit.sh` is to lanuch all slurm jobs. The required data are extracted by `data.sh` from output files and stored into a series of CSV files in `../../results`.
+The bash script `build.sh` is to build ChASE for these experiments. The bash script `submit.sh` is to lanuch all slurm jobs. The required data are extracted by `data.sh` from output files and stored into a series of CSV files in `../../results`.
 
 ## Workflow
 
@@ -96,7 +90,7 @@ export DATA_PATH=/path/store/DFT/Matrices
 
 ### GPU build and experiments
 
-1. build ChASE v1.3.1 with GPU support
+1. build ChASE with GPU support
 
 ```bash
 ./build.sh

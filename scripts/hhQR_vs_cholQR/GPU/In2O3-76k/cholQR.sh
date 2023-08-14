@@ -11,9 +11,10 @@
 
 export SRUN_CPUS_PER_TASK=${SLURM_CPUS_PER_TASK}
 
-ml Stages/2022 GCC OpenMPI CUDA imkl CMake Boost git
+ml Stages/2023 GCC OpenMPI CUDA imkl CMake Boost git
 
 export OMP_NUM_THREADS=${SRUN_CPUS_PER_TASK}
+export MKL_NUM_THREADS=1
 
 executable=../ChASE/build/examples/2_input_output/2_input_output_mgpu
 

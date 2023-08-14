@@ -71,9 +71,7 @@ namespace chase {
 					      std::size_t n, 
 					      std::size_t maxBlock) :
 					      m_(m), n_(n), maxBlock_(maxBlock) {
-		#ifdef USE_NSIGHT
-        nvtxRangePushA("mgpu_cudaDLA: Init");
-#endif		
+				
 					N_ = matrix_properties->get_N();
         			nev_ = matrix_properties->GetNev();	
         			nex_ = matrix_properties->GetNex();	
@@ -288,9 +286,6 @@ namespace chase {
 					time_dist = std::chrono::milliseconds::zero();
 					time_axpy = std::chrono::milliseconds::zero();
 					time_redist = std::chrono::milliseconds::zero();
-					#ifdef USE_NSIGHT
-        nvtxRangePop();
-#endif
 				}
 
 				/* Remove local variables and free arrays */
@@ -411,6 +406,7 @@ namespace chase {
 				*/
 				void distribute_V (T* buf_init, std::size_t ldBuf, std::size_t block) {
 
+
 					/* Number of rows in the tile */
 					int tile_x;
 
@@ -462,7 +458,6 @@ namespace chase {
 							}
 						}
 					}
-					
 				}
 
 				/* Compute Hemm */
@@ -505,6 +500,8 @@ namespace chase {
 					int dev_id; 
 
 					/* Visit all the tiles of the tile matrix H and compute local (partial) HEMM operations */
+
+					t1 = std::chrono::high_resolution_clock::now();
 
 					/* Pass through the rows of tiled H */
 					for (int dev_x = 0; dev_x < ntile_m_; dev_x++) {
@@ -557,6 +554,9 @@ namespace chase {
 					
 					/* Synchronize all GPUs */
 					this->synchronizeAll();
+  					t2 = std::chrono::high_resolution_clock::now();
+  					elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+  					std::cout << "+ Filter/GEMM," << elapsed.count() << std::endl;
 
 					int gpu_src;
 					int gpu_dest;
@@ -566,6 +566,8 @@ namespace chase {
 					 * Implemented as a parallel prefix sum. 
 					 * In the first step the odd GPUs transfer their partial solutions (tile products) to a one previous GPU (i.e. the one with the index-1) where the
 					 * sum of two tiles are computed and so on. */ 
+					t1 = std::chrono::high_resolution_clock::now();
+
 					for (int s = 1; s < num_tile_cols; s <<= 1) {
 
 						if (next_ == NextOp::cAb) {
@@ -600,6 +602,11 @@ namespace chase {
 							}
 						}
 					}
+
+  					t2 = std::chrono::high_resolution_clock::now();
+  					elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+  					std::cout << "+ Filter/Memcpy," << elapsed.count() << std::endl;
+
 				}
 
 				/* Collect and return the computed W from the GPUs to the host*/
@@ -722,8 +729,14 @@ namespace chase {
 					t_gqr(LAPACK_COL_MAJOR, N, nevex, nevex, approxV, LDA, tau.get());
 
 */
+
 					cudaSetDevice(shmrank_*num_devices_per_rank);
+					t1 = std::chrono::high_resolution_clock::now();					
 					cuda_exec(cudaMemcpyAsync(d_V_, approxV, sizeof(T)*N*nevex, cudaMemcpyHostToDevice, stream2_[0]));
+					t2 = std::chrono::high_resolution_clock::now();
+      				elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+      				std::cout << "+ QR/H2D," << elapsed.count() << std::endl;
+					t1 = std::chrono::high_resolution_clock::now();
 					cudaSetDevice(shmrank_*num_devices_per_rank);
 					cusolver_status_ = cusolverDnTgeqrf(
 										cusolverH_[0],
@@ -749,11 +762,17 @@ namespace chase {
 										lwork_,
 										devInfo_);
 					assert(CUSOLVER_STATUS_SUCCESS == cusolver_status_);
+					t2 = std::chrono::high_resolution_clock::now();
+      				elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+      				std::cout << "+ QR/geqrf," << elapsed.count() << std::endl;
+					t1 = std::chrono::high_resolution_clock::now();
 					cudaSetDevice(shmrank_*num_devices_per_rank);
 					cuda_exec(cudaMemcpyAsync(approxV, d_V_, sizeof(T)*N*nevex, cudaMemcpyDeviceToHost, stream2_[0]));
 					cudaStreamSynchronize(stream2_[0]);
 
-				
+					t2 = std::chrono::high_resolution_clock::now();
+      				elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+      				std::cout << "+ QR/D2H," << elapsed.count() << std::endl;
 				}
 
  /*!
@@ -782,10 +801,15 @@ namespace chase {
 					cuda_exec(cudaMalloc ((void**)&d_W_, sizeof(T) * N * block));
 					cuda_exec(cudaMalloc ((void**)&d_A_, sizeof(T) * block * block));
 					cudaSetDevice(shmrank_*num_devices_per_rank);
+      				t1 = std::chrono::high_resolution_clock::now();
 					cuda_exec(cudaMemcpyAsync(d_V_, approxV + locked * N, sizeof(T)* N * block, cudaMemcpyHostToDevice, stream_[0]));
 					cuda_exec(cudaMemcpyAsync(d_W_, workspace + locked * N, sizeof(T)* N * block, cudaMemcpyHostToDevice, stream_[0]));
 					cudaSetDevice(shmrank_*num_devices_per_rank);
-					
+      
+      				t2 = std::chrono::high_resolution_clock::now();
+      				elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+      				std::cout << "+ RR/H2D," << elapsed.count() << std::endl;
+      				t1 = std::chrono::high_resolution_clock::now();
 					cublas_status_ = cublasTgemm(
 	  					handle_[0],
 	  					CUBLAS_OP_C,
@@ -801,12 +825,26 @@ namespace chase {
 	  					block);
 					assert(cublas_status_ == CUBLAS_STATUS_SUCCESS);
 				     // start of CPU heevd 
-				     
+      				t2 = std::chrono::high_resolution_clock::now();
+      				elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+      				std::cout << "+ RR/GEMM," << elapsed.count() << std::endl;
+      				t1 = std::chrono::high_resolution_clock::now();
 					cuda_exec(cudaMemcpyAsync(A, d_A_, sizeof(T)* block * block, cudaMemcpyDeviceToHost, stream_[0]));	
 					cudaDeviceSynchronize();
+      				t2 = std::chrono::high_resolution_clock::now();
+      				elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+      				std::cout << "+ RR/D2H," << elapsed.count() << std::endl;
+      				t1 = std::chrono::high_resolution_clock::now();
 					t_heevd(LAPACK_COL_MAJOR, 'V', 'L', block, A, block, ritzv);
+      				t2 = std::chrono::high_resolution_clock::now();
+      				elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+      				std::cout << "+ RR/HEEVD," << elapsed.count() << std::endl;
+      				t1 = std::chrono::high_resolution_clock::now();
 					cuda_exec(cudaMemcpyAsync(d_A_, A, sizeof(T)* block * block, cudaMemcpyHostToDevice, stream_[0]));				   
-				     
+      				t2 = std::chrono::high_resolution_clock::now();
+      				elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+      				std::cout << "+ RR/H2D," << elapsed.count() << std::endl;
+
 				     // end of CPU heevd
 				     // start of cuSolver heevd 
 /*				     cudaDeviceSynchronize();
@@ -846,6 +884,7 @@ namespace chase {
 				     if (d_ritz_) cudaFree(d_ritz_);				     
 				     // end of cusolver HEEVD
 */
+      				t1 = std::chrono::high_resolution_clock::now();
 				     cudaSetDevice(shmrank_*num_devices_per_rank);
 				     cublas_status_ = cublasTgemm(
             				handle_[0],
@@ -861,6 +900,10 @@ namespace chase {
             				d_W_,
             				N);
 					assert(cublas_status_ == CUBLAS_STATUS_SUCCESS);
+      				t2 = std::chrono::high_resolution_clock::now();
+      				elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+      				std::cout << "+ RR/GEMM," << elapsed.count() << std::endl;
+      				t1 = std::chrono::high_resolution_clock::now();
  				    cudaSetDevice(shmrank_*num_devices_per_rank);
   				    cuda_exec(cudaMemcpyAsync(approxV + locked * N, d_V_, sizeof(T)* N * block, cudaMemcpyDeviceToHost, stream_[0]));
 					cuda_exec(cudaMemcpyAsync(workspace + locked * N, d_W_, sizeof(T)* N * block, cudaMemcpyDeviceToHost, stream_[0]));
@@ -868,6 +911,10 @@ namespace chase {
 
 				    //related to cusolver HEEVD
 					cudaDeviceSynchronize();
+      				t2 = std::chrono::high_resolution_clock::now();
+      				elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+      				std::cout << "+ RR/D2H," << elapsed.count() << std::endl;
+
 					if (d_A_) cudaFree(d_A_);
 					if (d_W_) cudaFree(d_W_);
 
@@ -937,6 +984,9 @@ namespace chase {
 				std::chrono::duration<double, std::milli> time_copy_V;
 				std::chrono::duration<double, std::milli> time_gemm, time_dist, time_axpy, time_redist;
 				std::chrono::duration<double, std::milli> local_time;
+  				
+  				std::chrono::high_resolution_clock::time_point t1, t2;
+  				std::chrono::duration<double> elapsed;
 
 				/// MPI ranks and communication
 				MPI_Comm shmcomm;

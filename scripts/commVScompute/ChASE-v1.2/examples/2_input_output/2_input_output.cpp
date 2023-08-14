@@ -422,9 +422,6 @@ int do_chase(ChASE_DriverProblemConfig& conf) {
   }
 
   for (auto i = bgn; i <= end; ++i) {
-    #ifdef USE_NSIGHT
-        nvtxRangePushA("initVecs");
-#endif
     if (i == bgn || !sequence) {
       if (mode[0] == 'A') {
         readMatrix(V, path_eigp, spin, kpoint, i - 1, ".vct", N * (nev + nex),
@@ -442,14 +439,11 @@ int do_chase(ChASE_DriverProblemConfig& conf) {
         for (int j = 0; j < (nev + nex); j++) {
 	  Lambda[j] = 0.0;
         };
-    
-      }      
+      }
     }else{
       config.SetApprox(true);
     }
-#ifdef USE_NSIGHT
-        nvtxRangePop();
-#endif  
+
 #ifdef USE_BLOCK_CYCLIC
   /*local block number = mblocks x nblocks*/
     std::size_t mblocks = single.get_mblocks();
@@ -476,9 +470,7 @@ int do_chase(ChASE_DriverProblemConfig& conf) {
     std::chrono::duration<double> elapsed;
 
     start = std::chrono::high_resolution_clock::now();
-#ifdef USE_NSIGHT
-        nvtxRangePushA("MatrixIO");
-#endif
+
     if(rank == 0) std::cout << "start reading matrix\n";
 #ifdef USE_BLOCK_CYCLIC
     if(sequence){
@@ -495,9 +487,7 @@ int do_chase(ChASE_DriverProblemConfig& conf) {
 #endif
 
     MPI_Barrier(MPI_COMM_WORLD);
-#ifdef USE_NSIGHT
-        nvtxRangePop();
-#endif
+
     end = std::chrono::high_resolution_clock::now();
 
     elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(end - start);
